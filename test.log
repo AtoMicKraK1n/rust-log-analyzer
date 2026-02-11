@@ -1,0 +1,10 @@
+INFO: Application started
+DEBUG: Loading configuration
+INFO: Configuration loaded successfully
+WARN: Deprecated function called
+ERROR: Failed to connect to database
+error: Connection timeout after 30s
+WARNING: Retrying connection
+INFO: Connection established
+Some random line without a level
+ERROR: Invalid user input
