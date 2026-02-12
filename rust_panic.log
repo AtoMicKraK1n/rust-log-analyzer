@@ -1,0 +1,11 @@
+error[E0046]: not all trait items implemented, missing: `append_bar`
+ --> exercises/15_traits/traits1.rs:7:1
+  |
+4 |     fn append_bar(self) -> Self;
+  |     ---------------------------- `append_bar` from trait
+...
+7 | impl AppendBar for String {
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^ missing `append_bar` in implementation
+
+For more information about this error, try `rustc --explain E0046`.
+error: could not compile `exercises` (bin "traits1") due to 1 previous error

@@ -1,89 +1,17 @@
 use std::fs;
 use std::env;
 
-#[derive(Debug)]
-enum LogLevel {
-    Error,
-    Warning,
-    Info,
-    Debug,
-    Unknown,
-}
+mod models;
+mod parser;
+mod rust_error;
+mod display;
 
-#[derive(Debug)]
-struct  LogEntry {
-    level: LogLevel,
-    message: String,
-    line_number: usize,
-}
+use parser::parse_log_line;
+use rust_error::{detect_rust_panic, detect_rust_error};
+use display::{display_summary, display_entries, display_rust_errors};
 
-fn parse_log_line(line: &str, line_number: usize) -> LogEntry {
-    // trimming whitespaces
-    let trimmed = line.trim();
-
-    // conditions for type of logs
-    let level = if trimmed.contains("ERROR") || trimmed.contains("error:") {
-        LogLevel::Error
-    } else if trimmed.contains("WARN") || trimmed.contains("warning:") {
-        LogLevel::Warning
-    } else if trimmed.contains("INFO") || trimmed.contains("info:") {
-        LogLevel::Info
-    } else if trimmed.contains("DEBUG") || trimmed.contains("debug:") {
-        LogLevel::Debug
-    } else {
-        LogLevel::Unknown
-    };
-
-    LogEntry {
-        level,
-        message: trimmed.to_string(),
-        line_number,
-    }
-
-}
-
-fn display_summary(entries: &[LogEntry]) {
-    let mut error_count = 0;
-    let mut warning_count = 0;
-    let mut info_count = 0;
-    let mut debug_count = 0;
-    let mut unknown_count = 0;
-
-    for entry in entries {
-        match entry.level {
-            LogLevel::Error => error_count += 1,
-            LogLevel::Warning => warning_count += 1,
-            LogLevel::Info => info_count += 1,
-            LogLevel::Debug => debug_count += 1,
-            LogLevel::Unknown => unknown_count += 1,
-        }
-    }
-
-    println!(" Log Analysis Summary ");
-    println!("Total entries: {}", entries.len());
-    println!("Errors:   {}", error_count);
-    println!("Warnings: {}", warning_count);
-    println!("Info:     {}", info_count);
-    println!("Debug:    {}", debug_count);
-    println!("Unknown:  {}", unknown_count);
-    println!();
-}
-
-fn display_entries(entries: &[LogEntry]) {
-    println!(" Log Entries ");
-    
-    for entry in entries {
-        let prefix = match entry.level {
-            LogLevel::Error => "[ERROR]",
-            LogLevel::Warning => "[WARN ]",
-            LogLevel::Info => "[INFO ]",
-            LogLevel::Debug => "[DEBUG]",
-            LogLevel::Unknown => "[?????]",
-        };
-        
-        println!("{} Line {}: {}", prefix, entry.line_number, entry.message);
-    }
-}
+use crate::models::LogEntry;
+use crate::models::RustError;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
@@ -95,20 +23,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let filename = &args[1];
-
     let contents = fs::read_to_string(filename)?;
 
     let entries: Vec<LogEntry> = contents
         .lines()
         .enumerate()
-        .map(|(i, line)| {
-            parse_log_line(line, i + 1)
+        .map(|(i, line)| parse_log_line(line, i + 1))
+        .collect();
+
+    let rust_errors: Vec<RustError> = contents
+        .lines()
+        .enumerate()
+        .filter_map(|(i, line)| {
+            // Try panic detection first
+            if let Some(error) = detect_rust_panic(line, i + 1) {
+                return Some(error);
+            }
+            // Then try other error patterns
+            detect_rust_error(line, i + 1)
         })
         .collect();
 
     display_summary(&entries);
+    display_rust_errors(&rust_errors);
     display_entries(&entries);
 
     Ok(())
 }
-
